@@ -61,6 +61,9 @@ jobs:
             echo "checking $f"
             sh -n "$f"
           done
+          bash -n v4/install-desktop.sh
 
       - name: shellcheck
-        run: shellcheck -s sh install.sh uninstall.sh v5/install.sh v5/uninstall.sh
+        run: |
+          shellcheck -s sh install.sh uninstall.sh v5/install.sh v5/uninstall.sh
+          shellcheck -s bash v4/install-desktop.sh

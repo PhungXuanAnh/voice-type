@@ -1,5 +1,24 @@
 # Voice Type v4 — desktop debugging
 
+On Ubuntu x86_64, install this fork's desktop version as your normal user:
+
+```sh
+git clone https://github.com/PhungXuanAnh/voice-type.git ~/repo/voice-type
+bash ~/repo/voice-type/v4/install-desktop.sh
+```
+
+The installer installs Chrome, Bun and desktop dependencies, builds v4 into
+`~/.local/bin/voice-type`, and configures one user service and one login entry.
+It defaults new configurations to `vi-VN`; existing `voice-type.jsonc` files are
+preserved. Select **Ubuntu on Xorg** at login. Installation without an active
+desktop session is supported; the app starts at the next Xorg login.
+
+To update, use `git -C ~/repo/voice-type pull --ff-only` and rerun the same
+installer. Repeated runs preserve your configuration and do not duplicate
+services or login entries. The build completes before replacing the installed
+binary. Do not use the upstream release installer or `voice-type update` for
+this source-built fork.
+
 Keyboard shortcut → curl → local daemon → Puppeteer → Chrome Web Speech API →
 transcripts → X11 UTF-8 paste (or dotool on Wayland) → focused application's text field. Chrome runs a private
 local recognition page, not Google Translate.

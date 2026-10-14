@@ -9,17 +9,18 @@ I needed high quality transcription, near real time, cheap or free, while using 
 
 # V4
 
-Uses a hidden chromium instance to take advantage of Google's Speech to Text infrastructure. Install with 
+This fork adds a visible Chrome recognition page, white/red microphone tray,
+and Vietnamese-safe typing on X11. Install its desktop version on Ubuntu x86_64
+as your normal user:
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/eriknovikov/voice-type/main/v4/install.sh | bash
+git clone https://github.com/PhungXuanAnh/voice-type.git ~/repo/voice-type
+bash ~/repo/voice-type/v4/install-desktop.sh
 ```
 
-Uninstall with
-
-```bash
-curl -sSL https://raw.githubusercontent.com/eriknovikov/voice-type/main/v4/uninstall.sh | bash
-```
+Use an **Ubuntu on Xorg** session. Rerunning the installer preserves existing
+configuration and installs no duplicate login entries. See [v4 instructions](v4/README.md)
+for updating, desktop controls and clipboard behavior.
 
 # V5
 
