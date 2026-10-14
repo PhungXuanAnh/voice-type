@@ -30,14 +30,14 @@ for package in "${packages[@]}"; do
 done
 if (( ${#missing[@]} )); then
     sudo apt-get update
-    sudo apt-get install -y "${missing[@]}"
+    sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${missing[@]}"
 fi
 
 browser=$(command -v google-chrome || command -v google-chrome-stable || true)
 if [[ -z $browser ]]; then
     curl -fL --retry 3 https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
         -o "$work_dir/google-chrome.deb"
-    sudo apt-get install -y "$work_dir/google-chrome.deb"
+    sudo env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$work_dir/google-chrome.deb"
     browser=$(command -v google-chrome || command -v google-chrome-stable)
 fi
 
