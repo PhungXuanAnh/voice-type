@@ -50,7 +50,7 @@ fi
 # Finish the build before touching the working installation or its service.
 (
     cd "$source_dir"
-    bun install
+    bun install --production
     bun build src/index.ts --compile --outfile "$work_dir/voice-type"
 )
 mkdir -p "$bin_dir" "$config_dir" "$unit_dir" "$config_dir/autostart"
