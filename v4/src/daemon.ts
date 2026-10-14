@@ -11,6 +11,7 @@ import { persistConfig } from "./config.js"
 import express, { type Express, type Request, type Response, type NextFunction } from "express"
 import Notifier from "./notifier.js"
 import { launchBrowser } from "./browserLauncher.js"
+import { WSA_LANGUAGES } from "./constants.js"
 import { isValidLanguage, readLanguageQuery } from "./language.js"
 import { createTranscriptTransformerSession } from "./transcriptTransformers/index.js"
 import { createNoopTransformerSession } from "./transcriptTransformers/noop.js"
@@ -65,9 +66,23 @@ export default class Daemon {
                 listening: running,
                 requested: this.isWSAListening,
                 language: this.config.lang,
+                languages: Object.values(WSA_LANGUAGES),
                 preview: this.previewMode,
                 error: this.browserError,
             })
+        })
+        this.app.post("/language", express.json(), (req, res) => {
+            const lang = req.body?.language
+            if (!isValidLanguage(lang)) {
+                res.status(400).json({ error: "Ngôn ngữ không được hỗ trợ" })
+                return
+            }
+            if (this.isWSAListening) {
+                res.status(409).json({ error: "Dừng nhận giọng nói trước khi đổi ngôn ngữ" })
+                return
+            }
+            this.config.lang = lang
+            res.json({ language: lang })
         })
         this.app.get("/show", async (_req, res) => {
             if (!this.options.desktop) {

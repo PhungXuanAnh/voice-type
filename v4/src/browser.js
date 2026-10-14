@@ -88,7 +88,7 @@ export function initWSA(stream, lang) {
         console.log("Listening...")
         rec.isRunning = true
         window.onRecordingState?.(true)
-        window.showSpeechStatus?.("Đang nghe", lang)
+        window.showSpeechStatus?.("Đang nghe", rec.lang)
     }
 
     rec.onresult = (event) => {

@@ -68,6 +68,9 @@
     <section>
         <strong id="mode">Đang kết nối…</strong>
         <p id="state">Đang khởi tạo…</p>
+        <label for="language">Ngôn ngữ nhận giọng nói</label>
+        <select id="language" disabled></select>
+        <p class="muted">Ngôn ngữ áp dụng cho nút thử và phím tắt trong phiên này. Dừng trước khi đổi.</p>
         <label for="microphone">Micro</label>
         <select id="microphone" disabled>
             <option value="">Mặc định hệ thống</option>
@@ -119,6 +122,28 @@
         }
         document.querySelector("#start").onclick = () => command("/preview")
         document.querySelector("#stop").onclick = () => command("/stop")
+        const language = document.querySelector("#language")
+        const languageNames = new Intl.DisplayNames(["vi"], { type: "language" })
+        let changingLanguage = false
+        language.onchange = async () => {
+            changingLanguage = true
+            language.disabled = true
+            document.querySelector("#start").disabled = true
+            try {
+                const response = await fetch("/language", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ language: language.value }),
+                })
+                const result = await response.json()
+                if (!response.ok) throw new Error(result.error)
+                record("Ngôn ngữ: " + languageNames.of(result.language))
+            } catch (error) {
+                record(String(error))
+            } finally {
+                changingLanguage = false
+            }
+        }
         const microphone = document.querySelector("#microphone")
         const microphones = document.querySelector("#microphones")
         let loadingMicrophones = false
@@ -171,9 +196,16 @@
                         : state.ready
                           ? "Sẵn sàng · " + state.language
                           : "Đang khởi tạo…"
+                if (!language.options.length) {
+                    for (const code of state.languages) {
+                        language.add(new Option(languageNames.of(code) + " · " + code, code))
+                    }
+                }
+                if (!changingLanguage) language.value = state.language
+                language.disabled = !state.ready || state.requested || changingLanguage
                 microphone.disabled = !window.recognition || state.requested || loadingMicrophones
                 microphones.disabled = microphone.disabled
-                document.querySelector("#start").disabled = !state.ready || state.requested
+                document.querySelector("#start").disabled = !state.ready || state.requested || changingLanguage
                 document.querySelector("#stop").disabled = !state.requested
                 document.querySelector("#hint").textContent = state.preview
                     ? "Bấm thử, nói rồi bấm Dừng. Văn bản chỉ hiện ở đây và trong Terminal."

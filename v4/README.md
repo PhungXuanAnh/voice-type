@@ -80,3 +80,7 @@ then choose a **Micro** before starting preview or dictation with a shortcut.
 The selection lasts for this Chrome session; restarting returns to the system default.
 An unavailable selected device reports an error instead of silently using another microphone.
 Selecting a specific device requires Chrome 135 or newer (`SpeechRecognition.start(audioTrack)`).
+
+Use **Ngôn ngữ nhận giọng nói** to choose any supported language before recording.
+This sets the default for preview and keyboard shortcuts for the current daemon session;
+restarting restores the configured `lang`. A shortcut with an explicit `?lang=...` still overrides it.

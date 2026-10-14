@@ -121,3 +121,28 @@ describe("GET /togglePunctuation", () => {
         expect(written.punctuation).toBe(false)
     })
 })
+
+test("language selection updates preview/shortcut default and rejects unsupported languages", async () => {
+    const config = { ...BASE_CONFIG }
+    const { baseUrl, server } = await startDaemon(config)
+    try {
+        const status = await getJson(`${baseUrl}/status`)
+        expect(status.body.languages).toContain("vi-VN")
+        expect(status.body.languages).toContain("ja-JP")
+        for (const [language, expected] of [
+            ["ja-JP", 200],
+            ["invalid", 400],
+        ] as const) {
+            const response = await fetch(`${baseUrl}/language`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ language }),
+            })
+            expect(response.status).toBe(expected)
+        }
+        expect(config.lang).toBe("ja-JP")
+        expect((await getJson(`${baseUrl}/status`)).body.language).toBe("ja-JP")
+    } finally {
+        server.close()
+    }
+})
