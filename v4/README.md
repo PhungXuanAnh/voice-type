@@ -74,3 +74,9 @@ interceptor applies only to the owned Chrome PID and window class.
 After debugging, Ctrl+C then `systemctl --user start voice-type` returns to the
 configured service. Its ExecStart must use `--desktop` for tray support.
 Avoid `voice-type update` if you want to retain this local build.
+
+To select an input in the owned Chrome window, stop dictation, click **Tải danh sách micro**,
+then choose a **Micro** before starting preview or dictation with a shortcut.
+The selection lasts for this Chrome session; restarting returns to the system default.
+An unavailable selected device reports an error instead of silently using another microphone.
+Selecting a specific device requires Chrome 135 or newer (`SpeechRecognition.start(audioTrack)`).

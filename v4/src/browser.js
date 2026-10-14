@@ -54,6 +54,36 @@ export function initWSA(stream, lang) {
     }
     rec.lang = lang !== undefined ? lang : "en-US"
 
+    let microphoneStream
+    let startGeneration = 0
+    window.releaseMicrophone = () => {
+        startGeneration++
+        microphoneStream?.getTracks().forEach((track) => track.stop())
+        microphoneStream = undefined
+    }
+    window.startWithMicrophone = async () => {
+        const generation = ++startGeneration
+        const deviceId = window.selectedMicrophone || ""
+        if (!deviceId) {
+            rec.start()
+            return
+        }
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: { deviceId: { exact: deviceId } },
+        })
+        if (generation !== startGeneration) {
+            stream.getTracks().forEach((track) => track.stop())
+            return
+        }
+        microphoneStream = stream
+        try {
+            rec.start(stream.getAudioTracks()[0])
+        } catch (error) {
+            window.releaseMicrophone()
+            throw error
+        }
+    }
+
     rec.onstart = () => {
         console.log("Listening...")
         rec.isRunning = true
@@ -72,6 +102,7 @@ export function initWSA(stream, lang) {
     }
 
     rec.onerror = (event) => {
+        window.releaseMicrophone()
         rec.isRunning = false
         window.onRecordingState?.(false)
         if (event.error === "network") window.isOffline = true
@@ -81,6 +112,7 @@ export function initWSA(stream, lang) {
     }
 
     rec.onend = () => {
+        window.releaseMicrophone()
         window.onRecordingState?.(false)
         window.onBrowserRecStop({ reason: window.isOffline ? "offline" : "silence" })
         rec.isRunning = false
@@ -91,28 +123,28 @@ export function initWSA(stream, lang) {
     window.recognition = rec
 }
 
-export function startListening() {
+export async function startListening() {
     if (!window.recognition) {
         const message = "rec not initialized"
         console.error(message)
         return
     }
     try {
-        window.recognition.start()
+        await window.startWithMicrophone()
     } catch (e) {
         const message = `Error starting rec: ${e.message || e}`
         console.error(message)
     }
 }
 
-export function setLangAndStart(lang) {
+export async function setLangAndStart(lang) {
     if (!window.recognition) {
         console.error("rec not initialized")
         return
     }
     try {
         window.recognition.lang = lang
-        window.recognition.start()
+        await window.startWithMicrophone()
     } catch (e) {
         window.onRecordingState?.(false)
         window.onBrowserError?.(String(e.message || e))
@@ -121,6 +153,7 @@ export function setLangAndStart(lang) {
 }
 
 export function stopRecognition() {
+    window.releaseMicrophone?.()
     if (!window.recognition) {
         const message = "rec not initialized"
         console.error(message)

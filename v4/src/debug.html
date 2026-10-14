@@ -30,6 +30,12 @@
             opacity: 0.45;
             cursor: not-allowed;
         }
+        select {
+            font: inherit;
+            max-width: 100%;
+            padding: 8px;
+            margin: 8px 10px 8px 0;
+        }
         button {
             font: inherit;
             background: #b9e7cb;
@@ -62,6 +68,12 @@
     <section>
         <strong id="mode">Đang kết nối…</strong>
         <p id="state">Đang khởi tạo…</p>
+        <label for="microphone">Micro</label>
+        <select id="microphone" disabled>
+            <option value="">Mặc định hệ thống</option>
+        </select>
+        <button id="microphones" disabled>Tải danh sách micro</button>
+        <p class="muted">Dừng nhận giọng nói trước khi đổi micro. Lựa chọn áp dụng trong phiên Chrome này.</p>
         <button id="start" disabled>Thử nhận giọng nói</button><button id="stop">Dừng</button>
         <p class="muted" id="hint"></p>
     </section>
@@ -107,6 +119,43 @@
         }
         document.querySelector("#start").onclick = () => command("/preview")
         document.querySelector("#stop").onclick = () => command("/stop")
+        const microphone = document.querySelector("#microphone")
+        const microphones = document.querySelector("#microphones")
+        let loadingMicrophones = false
+        microphone.onchange = () => {
+            window.selectedMicrophone = microphone.value
+            record("Micro: " + microphone.selectedOptions[0].textContent)
+        }
+        async function loadMicrophones() {
+            if (!window.recognition || loadingMicrophones) return
+            loadingMicrophones = true
+            microphones.disabled = true
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+                stream.getTracks().forEach((track) => track.stop())
+                const devices = await navigator.mediaDevices.enumerateDevices()
+                const selected = window.selectedMicrophone || ""
+                microphone.replaceChildren(new Option("Mặc định hệ thống", ""))
+                for (const device of devices.filter((device) => device.kind === "audioinput")) {
+                    microphone.add(new Option(device.label || "Micro " + microphone.length, device.deviceId))
+                }
+                if (
+                    selected &&
+                    !devices.some((device) => device.kind === "audioinput" && device.deviceId === selected)
+                ) {
+                    microphone.add(new Option("Micro đã chọn (đã ngắt kết nối)", selected))
+                }
+                microphone.value = selected
+            } catch (error) {
+                record("Không tải được danh sách micro: " + error)
+            } finally {
+                loadingMicrophones = false
+            }
+        }
+        microphones.onclick = loadMicrophones
+        navigator.mediaDevices?.addEventListener("devicechange", () => {
+            if (!microphone.disabled) void loadMicrophones()
+        })
         async function refresh() {
             try {
                 const state = await (await fetch("/status")).json()
@@ -122,6 +171,8 @@
                         : state.ready
                           ? "Sẵn sàng · " + state.language
                           : "Đang khởi tạo…"
+                microphone.disabled = !window.recognition || state.requested || loadingMicrophones
+                microphones.disabled = microphone.disabled
                 document.querySelector("#start").disabled = !state.ready || state.requested
                 document.querySelector("#stop").disabled = !state.requested
                 document.querySelector("#hint").textContent = state.preview
