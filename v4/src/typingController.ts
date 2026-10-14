@@ -39,49 +39,26 @@ export default class TypingController {
             return
         }
 
-        let script = ""
-        let asciiBuffer = ""
+        this.dotool.write(`type ${inlineText(text)}\n`)
+    }
 
-        const flushAscii = () => {
-            if (asciiBuffer.length > 0) {
-                script += `type ${asciiBuffer}\n`
-                asciiBuffer = ""
-            }
-        }
-
-        for (const char of text) {
-            const codePoint = char.codePointAt(0)
-            if (!codePoint) continue
-
-            if (codePoint === 10) {
-                flushAscii()
-                script += `key enter\n`
-            } else if (codePoint >= 32 && codePoint <= 126) {
-                asciiBuffer += char
-            } else {
-                flushAscii()
-                const hex = codePoint.toString(16)
-                script += `key ctrl+shift+u\n`
-                for (const hexChar of hex) {
-                    script += `key ${hexChar}\n`
-                }
-                script += `key enter\n`
-            }
-        }
-
-        flushAscii()
-        this.dotool.write(script)
+    public ready() {
+        return this.dotool.ready ?? Promise.resolve()
+    }
+    public flush() {
+        return this.dotool.flush?.() ?? Promise.resolve()
     }
 
     public applyLiveText(currText: string) {
         if (this.hasStopped) return
+        currText = inlineText(currText)
         if (currText === this.prevText) return
 
         if (this.prevText === "") {
             this.typeText(currText)
         } else {
             const commonPrefixLen = findCommonPrefixLen(currText, this.prevText)
-            const charsToDelete = this.prevText.length - commonPrefixLen
+            const charsToDelete = Array.from(this.prevText.slice(commonPrefixLen)).length
             const charsToAdd = currText.slice(commonPrefixLen)
             this.sendBackspaces(charsToDelete)
             this.typeText(charsToAdd)
@@ -94,6 +71,7 @@ export default class TypingController {
     }
 
     public reset() {
+        this.dotool.cancel?.()
         this.prevText = ""
     }
 
@@ -103,7 +81,14 @@ export default class TypingController {
 }
 
 function findCommonPrefixLen(currText: string, prevText: string) {
+    const current = Array.from(currText)
+    const previous = Array.from(prevText)
     let i = 0
-    while (currText[i] === prevText[i]) i++
-    return i
+    while (i < current.length && i < previous.length && current[i] === previous[i]) i++
+    return current.slice(0, i).join("").length
+}
+
+// Recognition text is prose. Never turn its controls into submit/navigation keys.
+function inlineText(text: string) {
+    return text.normalize("NFC").replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, " ")
 }

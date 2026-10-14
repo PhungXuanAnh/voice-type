@@ -1,7 +1,7 @@
 # Voice Type v4 — desktop debugging
 
 Keyboard shortcut → curl → local daemon → Puppeteer → Chrome Web Speech API →
-transcripts → dotool → focused application's text field. Chrome runs a private
+transcripts → X11 UTF-8 paste (or dotool on Wayland) → focused application's text field. Chrome runs a private
 local recognition page, not Google Translate.
 
 ```sh
@@ -16,7 +16,15 @@ For source development: `bun install`, then `bun run src/index.ts --debug`.
 Desktop modes require Linux X11, Chrome, cc/libxcb headers and system Python with
 GTK3 and Ayatana AppIndicator (or AppIndicator). Ubuntu desktop dependencies:
 `build-essential libxcb1-dev python3-gi gir1.2-ayatanaappindicator3-0.1`.
+All X11 modes also require `xdotool` (`sudo apt install xdotool`).
 Headless mode does not require those desktop dependencies.
+
+On X11, text is pasted with Shift+Insert to preserve Vietnamese accents with input
+methods such as IBus Bamboo. The focused application must support this paste shortcut.
+Dictation replaces both the clipboard and primary selection with the latest inserted
+text fragment; previous clipboard contents are not restored. Line breaks and control
+characters in transcripts become spaces, so ordinary dictation does not press Enter.
+Explicit spoken key commands remain available in languages that support them.
 
 The Chrome page shows microphone state, transcripts and errors. In either desktop or debug mode,
 click **Thử nhận giọng nói**, speak, then **Dừng**. F12 opens DevTools.
@@ -27,7 +35,8 @@ curl -fsS 'http://127.0.0.1:3232/toggle?lang=vi-VN'
 ```
 
 Native **X / Alt+F4** hides the window without unloading its page or stopping
-dictation. The microphone tray menu provides **Mở Chrome / kiểm tra**, **Dừng nhận
+dictation. The microphone is white while idle and red while Chrome is recording,
+including preview mode. The microphone tray menu provides **Mở Chrome / kiểm tra**, **Dừng nhận
 giọng nói** and **Thoát Voice Type**. Closing an individual tab still closes that
 tab; opening from the tray recreates the recognition page if needed.
 

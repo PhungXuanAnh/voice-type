@@ -61,12 +61,12 @@ describe("SpeechPipeline integration", () => {
         expect(normCase(screen)).toBe("hello.and then")
     })
 
-    test("deferred new line across segments", () => {
+    test("deferred new line stays inline without submitting the target", () => {
         const { screen } = runPipeline(true, "en-US", [
             streamingSegmentEvents({ interims: ["hello new"], final: "hello new" }),
             streamingSegmentEvents({ interims: ["line world"], final: "line world" }),
         ])
-        expect(normCase(screen)).toBe("hello\nworld")
+        expect(normCase(screen)).toBe("hello world")
     })
 
     test("single segment punctuation", () => {

@@ -226,5 +226,9 @@ describe("runPreflight", () => {
         const browserPath = createTempBrowser()
         const result = await runPreflight({ port: 39999, browser_path: browserPath }, () => new FakeProcess() as any, 0)
         expect(result.ok).toBe(true)
+        const x11Result = await runPreflight({ port: 39999, browser_path: browserPath, requireDotool: false }, () => {
+            throw new Error("X11 must not require dotool or uinput permissions")
+        })
+        expect(x11Result.ok).toBe(true)
     })
 })

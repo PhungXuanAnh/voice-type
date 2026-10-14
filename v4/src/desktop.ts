@@ -6,11 +6,14 @@ import { join } from "node:path"
 import { createInterface } from "node:readline"
 import nativeSource from "./native/chrome-tray.c" with { type: "text" }
 import traySource from "./native/tray.py" with { type: "text" }
+import idleIcon from "./icons/microphone-idle.svg" with { type: "text" }
+import recordingIcon from "./icons/microphone-recording.svg" with { type: "text" }
 import { log } from "./logger.js"
 
 export interface DesktopSession {
     env: NodeJS.ProcessEnv
     profile: string
+    setRecording(active: boolean): void
     restore(pid: number): void
     close(): Promise<void>
 }
@@ -52,7 +55,14 @@ export async function prepareDesktop(onAction: (action: string) => void): Promis
             join(profile, "Default", "Preferences"),
             JSON.stringify({ browser: { custom_chrome_frame: false } }),
         )
-        tray = spawn("/usr/bin/python3", ["-u", "-c", traySource], { stdio: ["pipe", "pipe", "pipe"] })
+        const idlePath = join(profile, "microphone-idle.svg")
+        const recordingPath = join(profile, "microphone-recording.svg")
+        await writeFile(idlePath, idleIcon)
+        await writeFile(recordingPath, recordingIcon)
+        tray = spawn("/usr/bin/python3", ["-u", "-c", traySource, idlePath, recordingPath], {
+            stdio: ["pipe", "pipe", "pipe"],
+        })
+        tray.stdin?.on("error", (error) => log("TRAY", error))
         tray.stderr?.on("data", (data) => log("TRAY", data.toString().trim()))
         const lines = createInterface({ input: tray.stdout! })
         await new Promise<void>((resolve, reject) => {
@@ -84,6 +94,9 @@ export async function prepareDesktop(onAction: (action: string) => void): Promis
         return {
             profile,
             env: { ...process.env, LD_PRELOAD: [library, process.env.LD_PRELOAD].filter(Boolean).join(":") },
+            setRecording(active) {
+                if (!closing && tray?.stdin?.writable) tray.stdin.write(JSON.stringify({ recording: active }) + "\n")
+            },
             restore(pid) {
                 execFileSync(helper, [String(pid)])
             },

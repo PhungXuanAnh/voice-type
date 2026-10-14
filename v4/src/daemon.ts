@@ -6,6 +6,7 @@ import * as browser from "./browser.js"
 import TypingController from "./typingController.js"
 import { log } from "./logger.js"
 import { runPreflight } from "./preflight.js"
+import { usesX11Typing } from "./dotoolSink.js"
 import { persistConfig } from "./config.js"
 import express, { type Express, type Request, type Response, type NextFunction } from "express"
 import Notifier from "./notifier.js"
@@ -26,8 +27,8 @@ export default class Daemon {
     private browserError: string | null = null
     private readonly config: VoiceTypeConfig
     private transcriptTransformer: TranscriptTransformerSession = createNoopTransformerSession()
-    private typingController: TypingController = new TypingController()
-    private speechPipeline: SpeechPipeline = new SpeechPipeline(this.transcriptTransformer, this.typingController)
+    private typingController: TypingController
+    private speechPipeline: SpeechPipeline
     private browser: Browser | null = null
     private page: Page | null = null
     private isWSAListening: boolean = false
@@ -45,10 +46,8 @@ export default class Daemon {
     ) {
         this.config = config
         this.previewMode = Boolean(options.preview)
-        if (typingController) {
-            this.typingController = typingController
-            this.speechPipeline = new SpeechPipeline(this.transcriptTransformer, this.typingController)
-        }
+        this.typingController = typingController ?? new TypingController()
+        this.speechPipeline = new SpeechPipeline(this.transcriptTransformer, this.typingController)
         this.punctuationEnabled = config.punctuation
         this.app = express()
         this.setupRoutes()
@@ -263,18 +262,32 @@ export default class Daemon {
 
     private async initBrowser() {
         this.browser = await launchBrowser(this.config, this.desktop ?? undefined)
+        this.browser.on("disconnected", () => this.resetRecordingState())
         this.page = (await this.browser.pages())[0] ?? (await this.browser.newPage())
         this.page.on("console", (msg) => log("BROWSER", msg.text()))
 
+        this.page.on("close", () => this.resetRecordingState())
         this.page.on("pageerror", (error) => log("BROWSER", error))
         await this.page.goto(`http://127.0.0.1:${this.config.port}/`)
+        await this.page.exposeFunction("onRecordingState", (active: boolean) => {
+            this.desktop?.setRecording(active && this.isWSAListening)
+        })
         await this.page.exposeFunction("onBrowserError", (error: string) => {
+            this.resetRecordingState()
             this.browserError = error
             log("SPEECH", `Recognition error: ${error}`)
         })
         await this.page.exposeFunction("onSpeechEvent", this.handleSpeechEvent.bind(this))
         await this.page.exposeFunction("onBrowserRecStop", this.handleBrowserRecStop.bind(this))
         await this.page.evaluate(browser.initWSA, this.config.stream, this.config.lang)
+    }
+
+    private resetRecordingState() {
+        this.desktop?.setRecording(false)
+        this.isWSAListening = false
+        this.clearSilenceTimer()
+        this.typingController.hasStopped = true
+        this.typingController.reset()
     }
 
     private handleSpeechEvent(event: SpeechEvent) {
@@ -318,6 +331,7 @@ export default class Daemon {
         const result = await runPreflight({
             port: this.config.port,
             browser_path: this.config.browser_path,
+            requireDotool: !usesX11Typing(),
         })
         if (!result.ok) {
             const { kind, message } = result.failure
@@ -334,6 +348,7 @@ export default class Daemon {
         }
 
         try {
+            await this.typingController.ready()
             if (this.options.desktop)
                 this.desktop = await prepareDesktop((action) => {
                     void this.onTrayAction(action).catch((error) => log("TRAY", error))
@@ -376,6 +391,7 @@ export default class Daemon {
     public async destroy() {
         if (this.closing) return
         this.closing = true
+        this.desktop?.setRecording(false)
         this.server?.close()
         this.server?.closeAllConnections()
         log("DAEMON", "Shutting down daemon...")

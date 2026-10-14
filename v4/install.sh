@@ -141,6 +141,20 @@ ask_notifications() {
     esac
 }
 
+install_xdotool() {
+    command -v xdotool >/dev/null 2>&1 && return 0
+    log_info "Installing xdotool for X11 UTF-8 typing..."
+    case "$(detect_pkg_manager)" in
+        apt) sudo apt-get install -y xdotool ;;
+        dnf) sudo dnf install -y xdotool ;;
+        pacman) sudo pacman -S --needed --noconfirm xdotool ;;
+        apk) sudo apk add xdotool ;;
+        xbps) sudo xbps-install -Sy xdotool ;;
+        nix) nix-env -iA nixpkgs.xdotool ;;
+        *) log_error "Install xdotool manually, then rerun the installer."; exit 1 ;;
+    esac
+}
+
 install_dotool() {
     HAS_DOTOOL=0
     if command -v dotool >/dev/null 2>&1; then
@@ -419,6 +433,7 @@ main() {
     detect_browser
     ask_notifications
     install_dotool
+    install_xdotool
     install_binary
     write_config
     print_summary

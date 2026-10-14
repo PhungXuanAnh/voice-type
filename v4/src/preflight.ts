@@ -101,7 +101,7 @@ export async function checkBrowserPath(path: string): Promise<PreflightResult> {
 }
 
 export async function runPreflight(
-    config: { port: number; browser_path: string },
+    config: { port: number; browser_path: string; requireDotool?: boolean },
     spawnFn: SpawnFn = defaultSpawn,
     probeMs: number = 500,
 ): Promise<PreflightResult> {
@@ -111,8 +111,10 @@ export async function runPreflight(
     const browserCheck = await checkBrowserPath(config.browser_path)
     if (!browserCheck.ok) return browserCheck
 
-    const dotoolCheck = await checkDotool(spawnFn, probeMs)
-    if (!dotoolCheck.ok) return dotoolCheck
+    if (config.requireDotool !== false) {
+        const dotoolCheck = await checkDotool(spawnFn, probeMs)
+        if (!dotoolCheck.ok) return dotoolCheck
+    }
 
     return { ok: true }
 }

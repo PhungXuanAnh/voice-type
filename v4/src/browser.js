@@ -57,6 +57,7 @@ export function initWSA(stream, lang) {
     rec.onstart = () => {
         console.log("Listening...")
         rec.isRunning = true
+        window.onRecordingState?.(true)
         window.showSpeechStatus?.("Đang nghe", lang)
     }
 
@@ -71,6 +72,8 @@ export function initWSA(stream, lang) {
     }
 
     rec.onerror = (event) => {
+        rec.isRunning = false
+        window.onRecordingState?.(false)
         if (event.error === "network") window.isOffline = true
         console.error(`Recognition error: ${event.error}`)
         window.showSpeechStatus?.("Lỗi: " + event.error)
@@ -78,6 +81,7 @@ export function initWSA(stream, lang) {
     }
 
     rec.onend = () => {
+        window.onRecordingState?.(false)
         window.onBrowserRecStop({ reason: window.isOffline ? "offline" : "silence" })
         rec.isRunning = false
         window.showSpeechStatus?.("Đã dừng")
@@ -110,6 +114,8 @@ export function setLangAndStart(lang) {
         window.recognition.lang = lang
         window.recognition.start()
     } catch (e) {
+        window.onRecordingState?.(false)
+        window.onBrowserError?.(String(e.message || e))
         console.error(`Error setting lang and starting rec: ${e.message || e}`)
     }
 }

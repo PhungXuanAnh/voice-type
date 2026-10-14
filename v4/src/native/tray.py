@@ -28,6 +28,9 @@ for label, action in [("Mở Chrome / kiểm tra", "show"),
     menu.append(item)
 menu.show_all()
 indicator = None
+recording = False
+pending = b""
+idle_icon, recording_icon = sys.argv[1:3]
 
 
 def create_indicator(*args):
@@ -37,7 +40,7 @@ def create_indicator(*args):
         indicator.set_status(AppIndicator.IndicatorStatus.ACTIVE)
         return
     indicator = AppIndicator.Indicator.new(
-        "voice-type-" + str(os.getpid()), "audio-input-microphone",
+        "voice-type-" + str(os.getpid()), recording_icon if recording else idle_icon,
         AppIndicator.IndicatorCategory.APPLICATION_STATUS)
     indicator.set_title("Voice Type")
     indicator.set_menu(menu)
@@ -45,10 +48,23 @@ def create_indicator(*args):
 
 
 def parent_input(fd, condition):
-    if condition != GLib.IO_IN or not os.read(fd, 4096):
+    global pending, recording
+    if condition != GLib.IO_IN:
         Gtk.main_quit()
         return False
+    chunk = os.read(fd, 4096)
+    if not chunk:
+        Gtk.main_quit()
+        return False
+    pending += chunk
+    while b"\n" in pending:
+        line, pending = pending.split(b"\n", 1)
+        state = json.loads(line)
+        recording = bool(state["recording"])
+        indicator.set_icon_full(recording_icon if recording else idle_icon,
+                                "Đang thu âm" if recording else "Chưa thu âm")
     return True
+
 
 
 GLib.io_add_watch(sys.stdin.fileno(), GLib.IO_IN | GLib.IO_HUP | GLib.IO_ERR, parent_input)

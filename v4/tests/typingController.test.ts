@@ -47,24 +47,28 @@ describe("TypingController", () => {
         expect(sink.writes.join("")).toBe("key BackSpace \nkey BackSpace \n")
     })
 
-    test("newline in text becomes key enter", () => {
+    test("Unicode is passed as text without compose shortcuts or Enter", () => {
         const sink = new CapturingSink()
         const tc = new TypingController(sink)
-        tc.typeText("a\nb")
-        const script = sink.writes.join("")
-        expect(script).toContain("type a\n")
-        expect(script).toContain("key enter\n")
-        expect(script).toContain("type b\n")
+        tc.typeText("bây giờ tôi dùng tiếng Việt")
+        expect(sink.writes).toEqual(["type bây giờ tôi dùng tiếng Việt\n"])
     })
 
-    test("unicode uses hex entry sequence", () => {
+    test("live corrections normalize accents and delete code points rather than UTF-16 halves", () => {
         const sink = new CapturingSink()
         const tc = new TypingController(sink)
-        tc.typeText("é")
-        const script = sink.writes.join("")
-        expect(script).toContain("key ctrl+shift+u\n")
-        expect(script).toContain("key e\n")
-        expect(script).toContain("key enter\n")
+        tc.applyLiveText("a\u0302😀")
+        tc.applyLiveText("âđ")
+        expect(sink.writes).toEqual(["type â😀\n", "key BackSpace \n", "type đ\n"])
+    })
+
+    test("recognition line breaks and controls remain inline and never become commands", () => {
+        const sink = new CapturingSink()
+        const tc = new TypingController(sink)
+        tc.applyLiveText("tôi\r\nkey enter\tđang\u2028nói\x1b")
+        tc.finalizeSegment()
+        tc.reset()
+        expect(sink.writes).toEqual(["type tôi key enter đang nói \n"])
     })
 
     test("sendKeyChord", () => {
