@@ -14,7 +14,7 @@ if (arg === "help" || arg === "-h" || arg === "--help") {
 }
 
 async function main() {
-    initLogger()
+    initLogger({ mode: arg === "--debug" ? "stdout" : "auto" })
 
     if (arg === "update") {
         const { runUpdate } = await import("./updater.js")
@@ -22,13 +22,16 @@ async function main() {
         return
     }
 
-    if (arg !== undefined) {
+    if (arg !== undefined && arg !== "--debug" && arg !== "--desktop") {
         showHelp()
         process.exit(0)
     }
 
     const config = await loadConfig()
-    const daemon = new Daemon(config)
+    const daemon = new Daemon(config, undefined, {
+        desktop: arg === "--desktop" || arg === "--debug",
+        preview: arg === "--debug",
+    })
 
     const destroyDaemon = async () => {
         await daemon.destroy()

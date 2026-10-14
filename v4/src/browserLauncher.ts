@@ -47,14 +47,18 @@ export async function detectDefaultBrowser(): Promise<{ path: string; type: Brow
     return null
 }
 
-export async function launchBrowser(config: VoiceTypeConfig) {
+export async function launchBrowser(config: VoiceTypeConfig, desktop?: { env: NodeJS.ProcessEnv; profile: string }) {
     const browserPath = config.browser_path || (config.browser_type === "chrome" ? CHROME_PATH : CHROMIUM_PATH)
 
     return puppeteer.launch({
         executablePath: browserPath,
-        // @ts-ignore
-        headless: "new",
-        args: LAUNCH_ARGS,
-        name: "Voice-Type-browser",
+        headless: desktop ? false : true,
+        defaultViewport: desktop ? null : undefined,
+        userDataDir: desktop?.profile,
+        env: desktop?.env,
+        args: [
+            ...LAUNCH_ARGS,
+            ...(desktop ? ["--class=voice-type-chrome", "--ozone-platform=x11", "--window-size=1000,760"] : []),
+        ],
     })
 }

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="vi">
+    <meta charset="utf-8" />
+    <title>Voice Type — Kiểm tra giọng nói</title>
+    <link rel="icon" href="data:," />
+    <style>
+        body {
+            font:
+                16px/1.6 system-ui,
+                sans-serif;
+            max-width: 850px;
+            margin: 36px auto;
+            padding: 0 24px;
+            color: #e8edf4;
+            background: #151a23;
+        }
+        h1 {
+            margin-bottom: 0;
+        }
+        .muted {
+            color: #aab7c8;
+        }
+        section {
+            background: #222b38;
+            padding: 20px;
+            margin: 18px 0;
+            border-radius: 12px;
+        }
+        button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+        button {
+            font: inherit;
+            background: #b9e7cb;
+            color: #14251d;
+            border: 0;
+            padding: 8px 18px;
+            border-radius: 7px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        pre {
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            max-height: 200px;
+            overflow: auto;
+            font-size: 13px;
+        }
+        #transcript {
+            white-space: pre-wrap;
+            min-height: 48px;
+        }
+        #interim {
+            color: #aab7c8;
+        }
+    </style>
+    <h1>Voice Type</h1>
+    <p class="muted">
+        Theo dõi nhận giọng nói trong Chrome. Bấm X để ẩn vào khay hệ thống; chọn “Mở Chrome / kiểm tra” để trở lại.
+    </p>
+    <section>
+        <strong id="mode">Đang kết nối…</strong>
+        <p id="state">Đang khởi tạo…</p>
+        <button id="start" disabled>Thử nhận giọng nói</button><button id="stop">Dừng</button>
+        <p class="muted" id="hint"></p>
+    </section>
+    <section>
+        <strong>Văn bản nhận được</strong>
+        <div id="transcript"></div>
+        <div id="interim"></div>
+    </section>
+    <section>
+        <strong>Sự kiện / lỗi gần nhất</strong>
+        <pre id="events"></pre>
+    </section>
+    <p class="muted">
+        Mở công cụ nhà phát triển (DevTools) bằng F12 để xem Console. Chế độ nhập chữ thông thường: chọn ô nhập trong
+        ứng dụng khác và dùng phím tắt.
+    </p>
+    <script>
+        const events = document.querySelector("#events")
+        function record(text) {
+            events.textContent = (new Date().toLocaleTimeString() + " " + text + "\n" + events.textContent).slice(
+                0,
+                12000,
+            )
+        }
+        window.showSpeechStatus = (state, language) => record(state + (language ? " · " + language : ""))
+        window.showTranscript = (text, final) => {
+            if (final) {
+                document.querySelector("#transcript").textContent = (
+                    document.querySelector("#transcript").textContent +
+                    text +
+                    "\n"
+                ).slice(-12000)
+                document.querySelector("#interim").textContent = ""
+            } else document.querySelector("#interim").textContent = text
+        }
+        async function command(path) {
+            try {
+                const response = await fetch(path)
+                record(await response.text())
+            } catch (error) {
+                record(String(error))
+            }
+        }
+        document.querySelector("#start").onclick = () => command("/preview")
+        document.querySelector("#stop").onclick = () => command("/stop")
+        async function refresh() {
+            try {
+                const state = await (await fetch("/status")).json()
+                document.querySelector("#mode").textContent = state.preview
+                    ? "Chế độ kiểm tra · không gõ vào ứng dụng khác"
+                    : "Chế độ nhập chữ · gõ vào ô đang chọn"
+                document.querySelector("#state").textContent = state.error
+                    ? "Lỗi nhận giọng nói: " + state.error
+                    : state.listening
+                      ? "Đang nghe…"
+                      : state.requested
+                        ? "Đang mở micro…"
+                        : state.ready
+                          ? "Sẵn sàng · " + state.language
+                          : "Đang khởi tạo…"
+                document.querySelector("#start").disabled = !state.ready || state.requested
+                document.querySelector("#stop").disabled = !state.requested
+                document.querySelector("#hint").textContent = state.preview
+                    ? "Bấm thử, nói rồi bấm Dừng. Văn bản chỉ hiện ở đây và trong Terminal."
+                    : "Bấm Thử để xem văn bản tại đây. Muốn gõ vào ứng dụng khác, chọn ô nhập rồi dùng phím tắt."
+            } catch {
+                document.querySelector("#state").textContent = "Mất kết nối với Voice Type"
+            }
+            setTimeout(refresh, 700)
+        }
+        refresh()
+    </script>
+</html>

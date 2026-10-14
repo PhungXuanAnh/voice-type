@@ -57,9 +57,13 @@ export function initWSA(stream, lang) {
     rec.onstart = () => {
         console.log("Listening...")
         rec.isRunning = true
+        window.showSpeechStatus?.("Đang nghe", lang)
     }
 
     rec.onresult = (event) => {
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            window.showTranscript?.(event.results[i][0].transcript, event.results[i].isFinal)
+        }
         const events = recognitionResultsToEvents(stream, event.resultIndex, event.results)
         for (const speechEvent of events) {
             window.onSpeechEvent(speechEvent)
@@ -68,12 +72,15 @@ export function initWSA(stream, lang) {
 
     rec.onerror = (event) => {
         if (event.error === "network") window.isOffline = true
-        else throw new Error(`unexpected recognition error: ${event.error}`)
+        console.error(`Recognition error: ${event.error}`)
+        window.showSpeechStatus?.("Lỗi: " + event.error)
+        window.onBrowserError?.(event.error)
     }
 
     rec.onend = () => {
         window.onBrowserRecStop({ reason: window.isOffline ? "offline" : "silence" })
         rec.isRunning = false
+        window.showSpeechStatus?.("Đã dừng")
         window.isOffline = undefined
     }
 

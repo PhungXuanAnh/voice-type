@@ -3,6 +3,8 @@ VOICE TYPE - Real-Time Dictation Daemon
 
 Usage:
   voice-type                 Run the daemon (foreground).
+  voice-type --desktop       Visible Chrome, close to tray (Linux X11).
+  voice-type --debug         Visible Chrome + stdout logs; preview only, no typing.
   voice-type help            Show this help.
   voice-type update          Self-update the binary.
 
@@ -34,7 +36,7 @@ Supported languages (most common):
 Full list: https://github.com/eriknovikov/voice-type/blob/main/src/constants.ts
 
 HTTP API (GET on http://localhost:<port>):
-  /health  /toggle  /start  /stop  /exit  /togglePunctuation
+  /health  /preview  /status  /show  /toggle  /start  /stop  /exit  /togglePunctuation
 `
 
 export function showHelp() {

@@ -1,3 +1,6 @@
+import type { Server } from "node:http"
+import { prepareDesktop, type DesktopSession } from "./desktop.js"
+import debugPage from "./debug.html" with { type: "text" }
 import { Browser, Page } from "puppeteer-core"
 import * as browser from "./browser.js"
 import TypingController from "./typingController.js"
@@ -16,6 +19,11 @@ import { shouldAcceptSpeechEvent } from "./speechEventGate.js"
 import type { SpeechEvent, VoiceTypeConfig } from "./types.js"
 
 export default class Daemon {
+    private desktop: DesktopSession | null = null
+    private server: Server | null = null
+    private closing = false
+    private previewMode = false
+    private browserError: string | null = null
     private readonly config: VoiceTypeConfig
     private transcriptTransformer: TranscriptTransformerSession = createNoopTransformerSession()
     private typingController: TypingController = new TypingController()
@@ -30,8 +38,13 @@ export default class Daemon {
     private silenceTimer: NodeJS.Timeout | null = null
     private punctuationEnabled: boolean
 
-    constructor(config: VoiceTypeConfig, typingController?: TypingController) {
+    constructor(
+        config: VoiceTypeConfig,
+        typingController?: TypingController,
+        private options: { desktop?: boolean; preview?: boolean } = {},
+    ) {
         this.config = config
+        this.previewMode = Boolean(options.preview)
         if (typingController) {
             this.typingController = typingController
             this.speechPipeline = new SpeechPipeline(this.transcriptTransformer, this.typingController)
@@ -43,8 +56,38 @@ export default class Daemon {
     }
 
     private setupRoutes() {
+        this.app.get("/", (_req, res) => res.type("html").send(debugPage))
+        this.app.get("/status", async (_req, res) => {
+            const running = this.page
+                ? await this.page.evaluate(() => Boolean((globalThis as any).recognition?.isRunning)).catch(() => false)
+                : false
+            res.json({
+                ready: this.isBrowserReady(),
+                listening: running,
+                requested: this.isWSAListening,
+                language: this.config.lang,
+                preview: this.previewMode,
+                error: this.browserError,
+            })
+        })
+        this.app.get("/show", async (_req, res) => {
+            if (!this.options.desktop) {
+                res.status(409).send("Restart with --desktop or --debug to show Chrome.")
+                return
+            }
+            try {
+                await this.showBrowser()
+                res.send("Chrome opened")
+            } catch (error) {
+                res.status(503).send(String(error))
+            }
+        })
         this.app.get("/health", (req, res) => {
             res.json({ status: "ok" })
+        })
+
+        this.app.get("/preview", this.browserHealthMiddleware.bind(this), async (_req, res) => {
+            await this.startTranscription(this.config.lang, res, true)
         })
 
         this.app.get("/start", this.browserHealthMiddleware.bind(this), async (req, res) => {
@@ -112,7 +155,7 @@ export default class Daemon {
         return requested
     }
 
-    private async startTranscription(lang: string, res: Response) {
+    private async startTranscription(lang: string, res: Response, preview = Boolean(this.options.preview)) {
         if (this.stopCooldown) {
             res.status(429).send("Cooldown active - wait before starting")
             return
@@ -122,6 +165,8 @@ export default class Daemon {
             return
         }
 
+        this.previewMode = preview
+        this.browserError = null
         log("DAEMON", `Starting transcription in '${lang}'...`)
         this.transcriptTransformer = createTranscriptTransformerSession(
             lang,
@@ -217,11 +262,16 @@ export default class Daemon {
     }
 
     private async initBrowser() {
-        this.browser = await launchBrowser(this.config)
-        this.page = await this.browser.newPage()
+        this.browser = await launchBrowser(this.config, this.desktop ?? undefined)
+        this.page = (await this.browser.pages())[0] ?? (await this.browser.newPage())
         this.page.on("console", (msg) => log("BROWSER", msg.text()))
 
-        await this.page.goto("data:text/html,<html><body><h1>Voice Type</h1></body></html>")
+        this.page.on("pageerror", (error) => log("BROWSER", error))
+        await this.page.goto(`http://127.0.0.1:${this.config.port}/`)
+        await this.page.exposeFunction("onBrowserError", (error: string) => {
+            this.browserError = error
+            log("SPEECH", `Recognition error: ${error}`)
+        })
         await this.page.exposeFunction("onSpeechEvent", this.handleSpeechEvent.bind(this))
         await this.page.exposeFunction("onBrowserRecStop", this.handleBrowserRecStop.bind(this))
         await this.page.evaluate(browser.initWSA, this.config.stream, this.config.lang)
@@ -230,7 +280,8 @@ export default class Daemon {
     private handleSpeechEvent(event: SpeechEvent) {
         if (!shouldAcceptSpeechEvent(this.isWSAListening, this.typingController.hasStopped)) return
 
-        this.speechPipeline.onEvent(event)
+        if (this.previewMode) log("PREVIEW", event)
+        else this.speechPipeline.onEvent(event)
         if (event.kind === "text" && this.config.stream && this.config.timeout > 0) {
             this.resetSilenceTimer()
         }
@@ -283,9 +334,18 @@ export default class Daemon {
         }
 
         try {
-            this.app.listen(this.config.port, "127.0.0.1", () => {
-                log("DAEMON", `server started on port: ${this.config.port}`)
+            if (this.options.desktop)
+                this.desktop = await prepareDesktop((action) => {
+                    void this.onTrayAction(action).catch((error) => log("TRAY", error))
+                })
+            await new Promise<void>((resolve, reject) => {
+                this.server = this.app.listen(this.config.port, "127.0.0.1", () => resolve())
+                this.server.once("error", reject)
             })
+            log(
+                "DAEMON",
+                `server started on port: ${this.config.port}; ${this.options.preview ? "preview only" : "typing enabled"}`,
+            )
             await this.initBrowser()
             this.notifier.notifyDaemonStart()
         } catch (e) {
@@ -296,14 +356,38 @@ export default class Daemon {
         }
     }
 
+    private async showBrowser() {
+        if (!this.isBrowserReady() || this.page!.isClosed() || !this.browser!.connected) await this.reinitBrowser()
+        const pid = this.browser!.process()?.pid
+        if (pid) this.desktop?.restore(pid)
+        await this.page!.bringToFront()
+    }
+
+    private async onTrayAction(action: string) {
+        if (this.closing) return
+        if (action === "show") await this.showBrowser()
+        else if (action === "stop") await this.stopTranscription("intentional")
+        else if (action === "quit" || action === "tray-exited") {
+            await this.destroy()
+            process.exit(0)
+        }
+    }
+
     public async destroy() {
+        if (this.closing) return
+        this.closing = true
+        this.server?.close()
+        this.server?.closeAllConnections()
         log("DAEMON", "Shutting down daemon...")
         this.clearSilenceTimer()
         this.transcriptTransformer.reset()
         this.notifier.destroy()
         this.typingController.destroy()
 
-        await this.page?.close()
-        await this.browser?.close()
+        try {
+            await this.browser?.close()
+        } finally {
+            await this.desktop?.close()
+        }
     }
 }
