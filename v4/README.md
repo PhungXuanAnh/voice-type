@@ -33,8 +33,8 @@ voice-type            # Original headless mode.
 
 For source development: `bun install`, then `bun run src/index.ts --debug`.
 Desktop modes require Linux X11, Chrome, cc/libxcb headers and system Python with
-GTK3 and Ayatana AppIndicator (or AppIndicator). Ubuntu desktop dependencies:
-`build-essential libxcb1-dev python3-gi gir1.2-ayatanaappindicator3-0.1`.
+GTK3; on GNOME the tray icon needs the AppIndicator extension (it also hosts legacy tray icons).
+Ubuntu desktop dependencies: `build-essential libxcb1-dev python3-gi gir1.2-gtk-3.0`.
 All X11 modes also require `xdotool` (`sudo apt install xdotool`).
 Headless mode does not require those desktop dependencies.
 
@@ -55,7 +55,8 @@ curl -fsS 'http://127.0.0.1:3232/toggle?lang=vi-VN'
 
 Native **X / Alt+F4** hides the window without unloading its page or stopping
 dictation. The microphone is white while idle and red while Chrome is recording,
-including preview mode. The microphone tray menu provides **Mở Chrome / kiểm tra**, **Dừng nhận
+including preview mode. Left-click the tray microphone to start or stop dictation in the
+selected language, like the shortcut; right-click it for a menu with **Mở Chrome / kiểm tra**, **Dừng nhận
 giọng nói** and **Thoát Voice Type**. Closing an individual tab still closes that
 tab; opening from the tray recreates the recognition page if needed.
 

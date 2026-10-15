@@ -67,7 +67,7 @@ export async function prepareDesktop(onAction: (action: string) => void): Promis
         const lines = createInterface({ input: tray.stdout! })
         await new Promise<void>((resolve, reject) => {
             const timer = setTimeout(
-                () => reject(new Error("Tray did not start; install python3-gi and gir1.2-ayatanaappindicator3-0.1.")),
+                () => reject(new Error("Tray did not start; install python3-gi and gir1.2-gtk-3.0.")),
                 5000,
             )
             const failed = (error: Error) => {

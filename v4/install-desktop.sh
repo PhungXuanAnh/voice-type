@@ -21,7 +21,7 @@ work_dir=$(mktemp -d "${TMPDIR:-"$source_dir/tmp"}/voice-type-install.XXXXXX")
 trap 'rm -rf -- "$work_dir"' EXIT
 
 packages=(ca-certificates curl git unzip build-essential libxcb1-dev xdotool python3-gi
-    gir1.2-gtk-3.0 gir1.2-ayatanaappindicator3-0.1 gnome-shell-extension-appindicator)
+    gir1.2-gtk-3.0 gnome-shell-extension-appindicator)
 missing=()
 for package in "${packages[@]}"; do
     if [[ $(dpkg-query -W -f='${Status}' "$package" 2>/dev/null || true) != 'install ok installed' ]]; then

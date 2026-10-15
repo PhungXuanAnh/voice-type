@@ -169,13 +169,13 @@ export default class Daemon {
         return requested
     }
 
-    private async startTranscription(lang: string, res: Response, preview = Boolean(this.options.preview)) {
+    private async startTranscription(lang: string, res?: Response, preview = Boolean(this.options.preview)) {
         if (this.stopCooldown) {
-            res.status(429).send("Cooldown active - wait before starting")
+            res?.status(429).send("Cooldown active - wait before starting")
             return
         }
         if (this.isWSAListening) {
-            res.send("Listener already active")
+            res?.send("Listener already active")
             return
         }
 
@@ -198,7 +198,7 @@ export default class Daemon {
         }
 
         await this.page!.evaluate(browser.setLangAndStart, lang)
-        res.send("Listening")
+        res?.send("Listening")
     }
 
     private async reinitBrowser() {
@@ -386,8 +386,12 @@ export default class Daemon {
         }
     }
 
-    private async showBrowser() {
+    private async ensureBrowser() {
         if (!this.isBrowserReady() || this.page!.isClosed() || !this.browser!.connected) await this.reinitBrowser()
+    }
+
+    private async showBrowser() {
+        await this.ensureBrowser()
         const pid = this.browser!.process()?.pid
         if (pid) this.desktop?.restore(pid)
         await this.page!.bringToFront()
@@ -396,7 +400,11 @@ export default class Daemon {
     private async onTrayAction(action: string) {
         if (this.closing) return
         if (action === "show") await this.showBrowser()
-        else if (action === "stop") await this.stopTranscription("intentional")
+        else if (action === "toggle") {
+            await this.ensureBrowser()
+            if (this.isWSAListening) await this.stopTranscription("intentional")
+            else await this.startTranscription(this.config.lang)
+        } else if (action === "stop") await this.stopTranscription("intentional")
         else if (action === "quit" || action === "tray-exited") {
             await this.destroy()
             process.exit(0)
