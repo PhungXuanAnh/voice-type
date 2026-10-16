@@ -53,9 +53,24 @@
             overflow: auto;
             font-size: 13px;
         }
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .section-header button {
+            margin-right: 0;
+        }
+        #transcript-box {
+            min-height: 48px;
+            max-height: 240px;
+            overflow-y: auto;
+            overflow-wrap: anywhere;
+            scrollbar-color: #aab7c8 transparent;
+        }
         #transcript {
             white-space: pre-wrap;
-            min-height: 48px;
         }
         #interim {
             color: #aab7c8;
@@ -81,9 +96,14 @@
         <p class="muted" id="hint"></p>
     </section>
     <section>
-        <strong>Văn bản nhận được</strong>
-        <div id="transcript"></div>
-        <div id="interim"></div>
+        <div class="section-header">
+            <strong>Văn bản nhận được</strong>
+            <button id="clear">Xoá</button>
+        </div>
+        <div id="transcript-box">
+            <div id="transcript"></div>
+            <div id="interim"></div>
+        </div>
     </section>
     <section>
         <strong>Sự kiện / lỗi gần nhất</strong>
@@ -102,15 +122,19 @@
             )
         }
         window.showSpeechStatus = (state, language) => record(state + (language ? " · " + language : ""))
+        const transcriptBox = document.querySelector("#transcript-box")
+        const transcript = document.querySelector("#transcript")
+        const interim = document.querySelector("#interim")
         window.showTranscript = (text, final) => {
             if (final) {
-                document.querySelector("#transcript").textContent = (
-                    document.querySelector("#transcript").textContent +
-                    text +
-                    "\n"
-                ).slice(-12000)
-                document.querySelector("#interim").textContent = ""
-            } else document.querySelector("#interim").textContent = text
+                transcript.textContent = (transcript.textContent + text + "\n").slice(-12000)
+                interim.textContent = ""
+            } else interim.textContent = text
+            transcriptBox.scrollTop = transcriptBox.scrollHeight
+        }
+        document.querySelector("#clear").onclick = () => {
+            transcript.textContent = ""
+            interim.textContent = ""
         }
         async function command(path) {
             try {
@@ -125,6 +149,16 @@
         const language = document.querySelector("#language")
         const languageNames = new Intl.DisplayNames(["vi"], { type: "language" })
         let changingLanguage = false
+        function languageGroup(code) {
+            if (code.startsWith("vi-")) return 0
+            if (code.startsWith("en-")) return 1
+            return 2
+        }
+        function compareLanguages(a, b) {
+            const groupDifference = languageGroup(a) - languageGroup(b)
+            if (groupDifference !== 0) return groupDifference
+            return languageNames.of(a).localeCompare(languageNames.of(b), "vi")
+        }
         language.onchange = async () => {
             changingLanguage = true
             language.disabled = true
@@ -197,7 +231,7 @@
                           ? "Sẵn sàng · " + state.language
                           : "Đang khởi tạo…"
                 if (!language.options.length) {
-                    for (const code of state.languages) {
+                    for (const code of state.languages.toSorted(compareLanguages)) {
                         language.add(new Option(languageNames.of(code) + " · " + code, code))
                     }
                 }
