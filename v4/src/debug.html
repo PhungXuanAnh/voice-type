@@ -180,7 +180,9 @@
         }
         const microphone = document.querySelector("#microphone")
         const microphones = document.querySelector("#microphones")
+        const defaultMicrophone = "mic_echo_cancel_v_2"
         let loadingMicrophones = false
+        let microphonesAutoloaded = false
         microphone.onchange = () => {
             window.selectedMicrophone = microphone.value
             record("Micro: " + microphone.selectedOptions[0].textContent)
@@ -193,6 +195,16 @@
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
                 stream.getTracks().forEach((track) => track.stop())
                 const devices = await navigator.mediaDevices.enumerateDevices()
+                // Only until the user picks a microphone, including "Mặc định hệ thống".
+                if (window.selectedMicrophone === undefined) {
+                    for (const device of devices) {
+                        if (device.kind === "audioinput" && device.label.toLowerCase() === defaultMicrophone) {
+                            window.selectedMicrophone = device.deviceId
+                            record("Micro: " + device.label)
+                            break
+                        }
+                    }
+                }
                 const selected = window.selectedMicrophone || ""
                 microphone.replaceChildren(new Option("Mặc định hệ thống", ""))
                 for (const device of devices.filter((device) => device.kind === "audioinput")) {
@@ -237,6 +249,10 @@
                 }
                 if (!changingLanguage) language.value = state.language
                 language.disabled = !state.ready || state.requested || changingLanguage
+                if (window.recognition && !microphonesAutoloaded) {
+                    microphonesAutoloaded = true
+                    void loadMicrophones()
+                }
                 microphone.disabled = !window.recognition || state.requested || loadingMicrophones
                 microphones.disabled = microphone.disabled
                 document.querySelector("#start").disabled = !state.ready || state.requested || changingLanguage

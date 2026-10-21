@@ -76,9 +76,10 @@ After debugging, Ctrl+C then `systemctl --user start voice-type` returns to the
 configured service. Its ExecStart must use `--desktop` for tray support.
 Avoid `voice-type update` if you want to retain this local build.
 
-To select an input in the owned Chrome window, stop dictation, click **Tải danh sách micro**,
-then choose a **Micro** before starting preview or dictation with a shortcut.
-The selection lasts for this Chrome session; restarting returns to the system default.
+The owned Chrome window loads the microphone list on start and selects `MIC_Echo_Cancel_V_2`
+when that input exists, otherwise the system default. To select another input, stop dictation
+and choose a **Micro** (click **Tải danh sách micro** to refresh the list) before starting preview
+or dictation with a shortcut. The selection lasts for this Chrome session.
 An unavailable selected device reports an error instead of silently using another microphone.
 Selecting a specific device requires Chrome 135 or newer (`SpeechRecognition.start(audioTrack)`).
 
