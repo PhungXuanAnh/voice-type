@@ -224,6 +224,7 @@
             }
         }
         microphones.onclick = loadMicrophones
+        window.loadMicrophones = loadMicrophones
         navigator.mediaDevices?.addEventListener("devicechange", () => {
             if (!microphone.disabled) void loadMicrophones()
         })

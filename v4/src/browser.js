@@ -63,6 +63,9 @@ export function initWSA(stream, lang) {
     }
     window.startWithMicrophone = async () => {
         const generation = ++startGeneration
+        // Chrome fires no devicechange for PulseAudio sources created after it started.
+        if (window.selectedMicrophone === undefined) await window.loadMicrophones?.()
+        if (generation !== startGeneration) return
         const deviceId = window.selectedMicrophone || ""
         if (!deviceId) {
             rec.start()

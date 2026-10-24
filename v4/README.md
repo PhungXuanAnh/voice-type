@@ -77,7 +77,9 @@ configured service. Its ExecStart must use `--desktop` for tray support.
 Avoid `voice-type update` if you want to retain this local build.
 
 The owned Chrome window loads the microphone list on start and selects `MIC_Echo_Cancel_V_2`
-when that input exists, otherwise the system default. To select another input, stop dictation
+when that input exists, otherwise the system default. Until a microphone is picked by hand, every
+start looks for `MIC_Echo_Cancel_V_2` again, so it is used even when it appears after Voice Type
+started. To select another input, stop dictation
 and choose a **Micro** (click **Tải danh sách micro** to refresh the list) before starting preview
 or dictation with a shortcut. The selection lasts for this Chrome session.
 An unavailable selected device reports an error instead of silently using another microphone.

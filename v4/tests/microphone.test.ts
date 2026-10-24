@@ -41,6 +41,12 @@ test("selected microphone feeds recognition and is released on stop/end/error", 
     app.window.selectedMicrophone = ""
     await app.start()
     expect(app.window.recognition.start).toHaveBeenLastCalledWith()
+    app.window.selectedMicrophone = undefined
+    app.window.loadMicrophones = mock(async () => {
+        app.window.selectedMicrophone = "echo-cancel"
+    })
+    await app.start()
+    expect(app.getUserMedia).toHaveBeenLastCalledWith({ audio: { deviceId: { exact: "echo-cancel" } } })
 })
 
 test("stopping during capture prevents recognition; device errors reach daemon", async () => {
